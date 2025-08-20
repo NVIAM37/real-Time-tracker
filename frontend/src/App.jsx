@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -8,14 +8,35 @@ function App() {
   const mapRef = useRef(null)
   const markersRef = useRef({})
   const ownLocationRef = useRef(null)
+  const [connectionStatus, setConnectionStatus] = useState('connecting')
+  const [connectionError, setConnectionError] = useState(null)
 
   const socket = useMemo(() => {
-    const inferredBackend = `${window.location.protocol}//${window.location.hostname}:3000`
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || inferredBackend
+    // Better URL detection for ngrok compatibility
+    let backendUrl;
+    
+    if (import.meta.env.VITE_BACKEND_URL) {
+      // Use environment variable if set
+      backendUrl = import.meta.env.VITE_BACKEND_URL;
+    } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      // Local development
+      backendUrl = `${window.location.protocol}//${window.location.hostname}:3000`;
+    } else {
+      // ngrok or other external access - use the same hostname but port 3000
+      // This assumes your backend is running on port 3000 and ngrok is forwarding it
+      backendUrl = `${window.location.protocol}//${window.location.hostname}:3000`;
+    }
+    
+    console.log('Connecting to backend at:', backendUrl);
+    
     return io(backendUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // Try polling first for ngrok compatibility
       autoConnect: true,
       forceNew: true,
+      timeout: 20000, // Increased timeout for ngrok
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     })
   }, [])
 
@@ -69,9 +90,38 @@ function App() {
 
     socket.on('connect', () => {
       console.log('socket connected', socket.id)
+      console.log('Connected to backend successfully')
+      setConnectionStatus('connected')
+      setConnectionError(null)
     })
+    
     socket.on('connect_error', (err) => {
       console.error('socket connect_error', err)
+      console.error('Connection error details:', {
+        message: err.message,
+        description: err.description,
+        context: err.context,
+        type: err.type
+      })
+      setConnectionStatus('error')
+      setConnectionError(err.message)
+    })
+    
+    socket.on('disconnect', (reason) => {
+      console.log('socket disconnected:', reason)
+      setConnectionStatus('disconnected')
+    })
+    
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('socket reconnected after', attemptNumber, 'attempts')
+      setConnectionStatus('connected')
+      setConnectionError(null)
+    })
+    
+    socket.on('reconnect_error', (error) => {
+      console.error('socket reconnect_error', error)
+      setConnectionStatus('error')
+      setConnectionError(error.message)
     })
 
     socket.on('receive-location', (data) => {
@@ -155,7 +205,48 @@ function App() {
   }, [socket])
 
   return (
-    <div id="map" style={{ width: '100vw', height: '100vh' }} />
+    <div>
+      {/* Connection Status Indicator */}
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '10px',
+        zIndex: 1000,
+        padding: '8px 12px',
+        borderRadius: '4px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        color: 'white',
+        backgroundColor: connectionStatus === 'connected' ? '#4CAF50' : 
+                       connectionStatus === 'error' ? '#f44336' : 
+                       connectionStatus === 'disconnected' ? '#ff9800' : '#2196F3'
+      }}>
+        {connectionStatus === 'connected' && '🟢 Connected'}
+        {connectionStatus === 'connecting' && '🟡 Connecting...'}
+        {connectionStatus === 'disconnected' && '🟠 Disconnected'}
+        {connectionStatus === 'error' && '🔴 Connection Error'}
+      </div>
+      
+      {connectionError && (
+        <div style={{
+          position: 'absolute',
+          top: '50px',
+          left: '10px',
+          zIndex: 1000,
+          padding: '8px 12px',
+          borderRadius: '4px',
+          fontSize: '12px',
+          color: 'white',
+          backgroundColor: '#f44336',
+          maxWidth: '300px',
+          wordWrap: 'break-word'
+        }}>
+          Error: {connectionError}
+        </div>
+      )}
+      
+      <div id="map" style={{ width: '100vw', height: '100vh' }} />
+    </div>
   )
 }
 
