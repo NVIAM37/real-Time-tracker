@@ -3,26 +3,21 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
-const app = express();
-const server = http.createServer(app);
-
-// Enhanced CORS configuration for ngrok compatibility
-app.use(cors({
-    origin: true, // Allow all origins
+// Configuration constants
+const CONFIG = {
+  PORT: process.env.PORT || 3000,
+  CORS_OPTIONS: {
+    origin: true, // Allow all origins for ngrok compatibility
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
-
-// Keeps the last known location per socket id so new connections can see existing peers
-const latestLocations = new Map();
-
-const io = new Server(server, {
+  },
+  SOCKET_OPTIONS: {
     cors: {
-        origin: true, // Allow all origins for ngrok compatibility
-        credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
     },
     transports: ['websocket', 'polling'], // Support both transports for ngrok
     allowEIO3: true, // Allow Engine.IO v3 clients
@@ -30,72 +25,132 @@ const io = new Server(server, {
     pingTimeout: 20000,
     upgradeTimeout: 30000, // Increased timeout for ngrok
     maxHttpBufferSize: 1e6, // 1MB buffer
-});
+  }
+};
 
-// Add middleware to log connection attempts
+// Initialize Express app and HTTP server
+const app = express();
+const server = http.createServer(app);
+
+// Apply CORS middleware
+app.use(cors(CONFIG.CORS_OPTIONS));
+
+// Store latest locations for each connected user
+const latestLocations = new Map();
+
+// Initialize Socket.IO server
+const io = new Server(server, CONFIG.SOCKET_OPTIONS);
+
+// Socket.IO middleware for logging connection attempts
 io.use((socket, next) => {
-    console.log('Connection attempt from:', socket.handshake.headers.origin || 'unknown origin');
-    next();
+  const origin = socket.handshake.headers.origin || 'unknown origin';
+  console.log(`🔌 Connection attempt from: ${origin}`);
+  next();
 });
 
+// Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ 
-        ok: true, 
-        timestamp: new Date().toISOString(),
-        connections: io.engine.clientsCount,
-        latestLocations: Array.from(latestLocations.keys())
-    });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    connections: io.engine.clientsCount,
+    activeUsers: Array.from(latestLocations.keys())
+  });
 });
 
-// Add a test endpoint for debugging
+// Test endpoint for debugging
 app.get('/test', (req, res) => {
-    res.json({ 
-        message: 'Backend is working!',
-        headers: req.headers,
-        timestamp: new Date().toISOString()
-    });
+  res.json({
+    message: 'Backend is working!',
+    headers: req.headers,
+    timestamp: new Date().toISOString()
+  });
 });
 
+// Socket.IO connection handler
 io.on('connection', (socket) => {
-    console.log('socket connected:', socket.id, 'total:', io.engine.clientsCount);
-    console.log('Client origin:', socket.handshake.headers.origin);
-    console.log('Client user-agent:', socket.handshake.headers['user-agent']);
+  const clientId = socket.id;
+  const totalConnections = io.engine.clientsCount;
+  
+  console.log(`✅ Socket connected: ${clientId} (Total: ${totalConnections})`);
+  console.log(`📍 Client origin: ${socket.handshake.headers.origin}`);
+  console.log(`🌐 Client user-agent: ${socket.handshake.headers['user-agent']}`);
 
-    // Replay existing peers' last known locations to the newly connected client
-    for (const [peerId, coords] of latestLocations.entries()) {
-        if (peerId !== socket.id) {
-            socket.emit('receive-location', { id: peerId, ...coords });
-        }
+  // Send existing peers' locations to newly connected client
+  broadcastExistingLocations(socket);
+
+  // Handle location updates from clients
+  socket.on('send-location', (data) => {
+    handleLocationUpdate(socket, data);
+  });
+
+  // Handle client disconnection
+  socket.on('disconnect', () => {
+    handleClientDisconnection(socket);
+  });
+
+  // Handle socket errors
+  socket.on('error', (error) => {
+    console.error(`❌ Socket error for ${clientId}:`, error);
+  });
+});
+
+// Helper function to broadcast existing locations to new clients
+function broadcastExistingLocations(socket) {
+  for (const [peerId, coordinates] of latestLocations.entries()) {
+    if (peerId !== socket.id) {
+      socket.emit('receive-location', { 
+        id: peerId, 
+        latitude: coordinates.latitude, 
+        longitude: coordinates.longitude 
+      });
     }
+  }
+}
 
-    socket.on('send-location', function (data) {
-        console.log('send-location from', socket.id, data);
-        latestLocations.set(socket.id, { latitude: data.latitude, longitude: data.longitude });
-        io.emit('receive-location', { id: socket.id, ...data });
-    });
+// Helper function to handle location updates
+function handleLocationUpdate(socket, data) {
+  const { latitude, longitude } = data;
+  const clientId = socket.id;
+  
+  console.log(`📍 Location update from ${clientId}:`, { latitude, longitude });
+  
+  // Store the latest location
+  latestLocations.set(clientId, { latitude, longitude });
+  
+  // Broadcast to all connected clients
+  io.emit('receive-location', { 
+    id: clientId, 
+    latitude, 
+    longitude 
+  });
+}
 
-    socket.on('disconnect', function () {
-        latestLocations.delete(socket.id);
-        io.emit('user-disconnected', socket.id);
-        console.log('socket disconnected:', socket.id, 'total:', io.engine.clientsCount);
-    });
+// Helper function to handle client disconnection
+function handleClientDisconnection(socket) {
+  const clientId = socket.id;
+  const totalConnections = io.engine.clientsCount;
+  
+  // Remove client's location data
+  latestLocations.delete(clientId);
+  
+  // Notify other clients about the disconnection
+  io.emit('user-disconnected', clientId);
+  
+  console.log(`❌ Socket disconnected: ${clientId} (Total: ${totalConnections})`);
+}
 
-    // Add error handling
-    socket.on('error', (error) => {
-        console.error('Socket error:', error);
-    });
-});
-
-// Error handling for the server
+// Server error handling
 server.on('error', (error) => {
-    console.error('Server error:', error);
+  console.error('🚨 Server error:', error);
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Backend listening on port ${PORT}`);
-    console.log(`Health check available at: http://localhost:${PORT}/health`);
-    console.log(`Test endpoint available at: http://localhost:${PORT}/test`);
+// Start the server
+server.listen(CONFIG.PORT, '0.0.0.0', () => {
+  console.log(`🚀 Backend server started successfully!`);
+  console.log(`📍 Listening on port: ${CONFIG.PORT}`);
+  console.log(`🏥 Health check: http://localhost:${CONFIG.PORT}/health`);
+  console.log(`🧪 Test endpoint: http://localhost:${CONFIG.PORT}/test`);
 });
 
 
