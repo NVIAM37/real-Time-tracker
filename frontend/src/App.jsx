@@ -89,14 +89,14 @@ function App() {
     }
 
     socket.on('connect', () => {
-      console.log('socket connected', socket.id)
+      console.log('Socket connected:', socket.id)
       console.log('Connected to backend successfully')
       setConnectionStatus('connected')
       setConnectionError(null)
     })
     
     socket.on('connect_error', (err) => {
-      console.error('socket connect_error', err)
+      console.error('Socket connection error:', err)
       console.error('Connection error details:', {
         message: err.message,
         description: err.description,
@@ -108,24 +108,24 @@ function App() {
     })
     
     socket.on('disconnect', (reason) => {
-      console.log('socket disconnected:', reason)
+      console.log('Socket disconnected:', reason)
       setConnectionStatus('disconnected')
     })
     
     socket.on('reconnect', (attemptNumber) => {
-      console.log('socket reconnected after', attemptNumber, 'attempts')
+      console.log('Socket reconnected after', attemptNumber, 'attempts')
       setConnectionStatus('connected')
       setConnectionError(null)
     })
     
     socket.on('reconnect_error', (error) => {
-      console.error('socket reconnect_error', error)
+      console.error('Socket reconnection error:', error)
       setConnectionStatus('error')
       setConnectionError(error.message)
     })
 
     socket.on('receive-location', (data) => {
-      console.log('receive-location', data)
+      console.log('Location received:', data)
       const { id, latitude, longitude } = data
       const adjusted = maybeJitter(id, latitude, longitude)
       map.setView([adjusted.lat, adjusted.lng])
@@ -152,7 +152,7 @@ function App() {
           socket.emit('send-location', { latitude, longitude })
         },
         (error) => {
-          console.error('getCurrentPosition error', error)
+          console.error('Error getting initial position:', error)
         },
         {
           enableHighAccuracy: true,
@@ -169,7 +169,7 @@ function App() {
         socket.emit('send-location', { latitude, longitude })
       },
       (error) => {
-        console.error(error)
+        console.error('Error watching position:', error)
       },
       {
         enableHighAccuracy: true,
@@ -181,8 +181,8 @@ function App() {
     const handleBeforeUnload = () => {
       try {
         socket.disconnect()
-      } catch {
-        console.error('Error disconnecting socket')
+      } catch (error) {
+        console.error('Error disconnecting socket:', error)
       }
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -221,10 +221,10 @@ function App() {
                        connectionStatus === 'error' ? '#f44336' : 
                        connectionStatus === 'disconnected' ? '#ff9800' : '#2196F3'
       }}>
-        {connectionStatus === 'connected' && '🟢 Connected'}
-        {connectionStatus === 'connecting' && '🟡 Connecting...'}
-        {connectionStatus === 'disconnected' && '🟠 Disconnected'}
-        {connectionStatus === 'error' && '🔴 Connection Error'}
+        {connectionStatus === 'connected' && 'Connected'}
+        {connectionStatus === 'connecting' && 'Connecting...'}
+        {connectionStatus === 'disconnected' && 'Disconnected'}
+        {connectionStatus === 'error' && 'Connection Error'}
       </div>
       
       {connectionError && (

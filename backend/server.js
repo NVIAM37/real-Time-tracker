@@ -44,7 +44,7 @@ const io = new Server(server, CONFIG.SOCKET_OPTIONS);
 // Socket.IO middleware for logging connection attempts
 io.use((socket, next) => {
   const origin = socket.handshake.headers.origin || 'unknown origin';
-  console.log(`🔌 Connection attempt from: ${origin}`);
+  console.log(`Connection attempt from: ${origin}`);
   next();
 });
 
@@ -72,9 +72,9 @@ io.on('connection', (socket) => {
   const clientId = socket.id;
   const totalConnections = io.engine.clientsCount;
   
-  console.log(`✅ Socket connected: ${clientId} (Total: ${totalConnections})`);
-  console.log(`📍 Client origin: ${socket.handshake.headers.origin}`);
-  console.log(`🌐 Client user-agent: ${socket.handshake.headers['user-agent']}`);
+  console.log(`Socket connected: ${clientId} (Total: ${totalConnections})`);
+  console.log(`Client origin: ${socket.handshake.headers.origin}`);
+  console.log(`Client user-agent: ${socket.handshake.headers['user-agent']}`);
 
   // Send existing peers' locations to newly connected client
   broadcastExistingLocations(socket);
@@ -91,7 +91,7 @@ io.on('connection', (socket) => {
 
   // Handle socket errors
   socket.on('error', (error) => {
-    console.error(`❌ Socket error for ${clientId}:`, error);
+    console.error(`Socket error for ${clientId}:`, error);
   });
 });
 
@@ -113,7 +113,7 @@ function handleLocationUpdate(socket, data) {
   const { latitude, longitude } = data;
   const clientId = socket.id;
   
-  console.log(`📍 Location update from ${clientId}:`, { latitude, longitude });
+  console.log(`Location update from ${clientId}:`, { latitude, longitude });
   
   // Store the latest location
   latestLocations.set(clientId, { latitude, longitude });
@@ -137,20 +137,20 @@ function handleClientDisconnection(socket) {
   // Notify other clients about the disconnection
   io.emit('user-disconnected', clientId);
   
-  console.log(`❌ Socket disconnected: ${clientId} (Total: ${totalConnections})`);
+  console.log(`Socket disconnected: ${clientId} (Total: ${totalConnections})`);
 }
 
 // Server error handling
 server.on('error', (error) => {
-  console.error('🚨 Server error:', error);
+  console.error('Server error:', error);
 });
 
 // Start the server
 server.listen(CONFIG.PORT, '0.0.0.0', () => {
-  console.log(`🚀 Backend server started successfully!`);
-  console.log(`📍 Listening on port: ${CONFIG.PORT}`);
-  console.log(`🏥 Health check: http://localhost:${CONFIG.PORT}/health`);
-  console.log(`🧪 Test endpoint: http://localhost:${CONFIG.PORT}/test`);
+  console.log(`Backend server started successfully!`);
+  console.log(`Listening on port: ${CONFIG.PORT}`);
+  console.log(`Health check: http://localhost:${CONFIG.PORT}/health`);
+  console.log(`Test endpoint: http://localhost:${CONFIG.PORT}/test`);
 });
 
 
