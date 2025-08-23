@@ -1,127 +1,47 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import './App.css';
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { io } from 'socket.io-client'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import './App.css'
 
-// Custom hook for managing socket connection
-function useSocketConnection() {
-  const [connectionStatus, setConnectionStatus] = useState('connecting');
-  const [connectionError, setConnectionError] = useState(null);
+function App() {
+  const mapRef = useRef(null)
+  const markersRef = useRef({})
+  const ownLocationRef = useRef(null)
+  const [connectionStatus, setConnectionStatus] = useState('connecting')
+  const [connectionError, setConnectionError] = useState(null)
 
   const socket = useMemo(() => {
-    // Determine backend URL based on environment
+    // Better URL detection for ngrok compatibility
     let backendUrl;
     
     if (import.meta.env.VITE_BACKEND_URL) {
+      // Use environment variable if set
       backendUrl = import.meta.env.VITE_BACKEND_URL;
     } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      // Local development
       backendUrl = `${window.location.protocol}//${window.location.hostname}:3000`;
     } else {
-      // For ngrok or external access - use same hostname but port 3000
+      // ngrok or other external access - use the same hostname but port 3000
+      // This assumes your backend is running on port 3000 and ngrok is forwarding it
       backendUrl = `${window.location.protocol}//${window.location.hostname}:3000`;
     }
     
-    console.log('🔌 Connecting to backend at:', backendUrl);
+    console.log('Connecting to backend at:', backendUrl);
     
     return io(backendUrl, {
-      transports: ['polling', 'websocket'],
+      transports: ['polling', 'websocket'], // Try polling first for ngrok compatibility
       autoConnect: true,
       forceNew: true,
-      timeout: 20000,
+      timeout: 20000, // Increased timeout for ngrok
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-    });
-  }, []);
+    })
+  }, [])
 
   useEffect(() => {
-    const handleConnect = () => {
-      console.log('✅ Socket connected:', socket.id);
-      setConnectionStatus('connected');
-      setConnectionError(null);
-    };
-    
-    const handleConnectError = (err) => {
-      console.error('❌ Socket connection error:', err);
-      setConnectionStatus('error');
-      setConnectionError(err.message);
-    };
-    
-    const handleDisconnect = (reason) => {
-      console.log('🔌 Socket disconnected:', reason);
-      setConnectionStatus('disconnected');
-    };
-    
-    const handleReconnect = (attemptNumber) => {
-      console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
-      setConnectionStatus('connected');
-      setConnectionError(null);
-    };
-    
-    const handleReconnectError = (error) => {
-      console.error('❌ Socket reconnection error:', error);
-      setConnectionStatus('error');
-      setConnectionError(error.message);
-    };
-
-    // Set up event listeners
-    socket.on('connect', handleConnect);
-    socket.on('connect_error', handleConnectError);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('reconnect', handleReconnect);
-    socket.on('reconnect_error', handleReconnectError);
-
-    // Cleanup function
-    return () => {
-      socket.off('connect', handleConnect);
-      socket.off('connect_error', handleConnectError);
-      socket.off('disconnect', handleDisconnect);
-      socket.off('reconnect', handleReconnect);
-      socket.off('reconnect_error', handleReconnectError);
-    };
-  }, [socket]);
-
-  return { socket, connectionStatus, connectionError };
-}
-
-// Custom hook for managing map functionality
-function useMapManagement(socket) {
-  const mapRef = useRef(null);
-  const markersRef = useRef({});
-  const ownLocationRef = useRef(null);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    // Initialize Leaflet map
-    initializeMap();
-    
-    // Set up socket event listeners
-    const handleReceiveLocation = (data) => {
-      handleLocationUpdate(data);
-    };
-
-    const handleUserDisconnected = (userId) => {
-      removeUserMarker(userId);
-    };
-
-    socket.on('receive-location', handleReceiveLocation);
-    socket.on('user-disconnected', handleUserDisconnected);
-
-    // Initialize geolocation
-    initializeGeolocation();
-
-    // Cleanup function
-    return () => {
-      socket.off('receive-location', handleReceiveLocation);
-      socket.off('user-disconnected', handleUserDisconnected);
-      cleanupMap();
-    };
-  }, [socket]);
-
-  const initializeMap = () => {
-    // Set default Leaflet marker icons
+    // Ensure default Leaflet marker icons load correctly in bundlers
     const defaultIcon = L.icon({
       iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
       iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -131,214 +51,203 @@ function useMapManagement(socket) {
       popupAnchor: [1, -34],
       tooltipAnchor: [16, -28],
       shadowSize: [41, 41],
-    });
-    L.Marker.prototype.options.icon = defaultIcon;
+    })
+    L.Marker.prototype.options.icon = defaultIcon
 
-    // Create map if it doesn't exist
     if (!mapRef.current) {
-      mapRef.current = L.map('map', { zoomControl: true }).setView([0, 0], 16);
+      mapRef.current = L.map('map', { zoomControl: true }).setView([0, 0], 16)
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: 'coder7.0',
-      }).addTo(mapRef.current);
+      }).addTo(mapRef.current)
     }
-  };
 
-  const handleLocationUpdate = (data) => {
-    const { id, latitude, longitude } = data;
-    const adjusted = applyJitterIfNeeded(id, latitude, longitude);
+    const map = mapRef.current
+    const markers = markersRef.current
+
+    const metersToLatLngDelta = (meters, atLat) => {
+      const dLat = meters / 111320
+      const dLng = meters / (111320 * Math.cos((atLat * Math.PI) / 180))
+      return { dLat, dLng }
+    }
+
+    const maybeJitter = (id, lat, lng) => {
+      const own = ownLocationRef.current
+      if (!own || id === socket.id) return { lat, lng }
+      const latMeters = (lat - own.lat) * 111320
+      const lngMeters = (lng - own.lng) * 111320 * Math.cos((own.lat * Math.PI) / 180)
+      const distanceMeters = Math.sqrt(latMeters * latMeters + lngMeters * lngMeters)
+      if (distanceMeters > 1) return { lat, lng }
+      let hash = 0
+      for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+      const angle = (hash % 360) * (Math.PI / 180)
+      const radius = 2
+      const { dLat, dLng } = metersToLatLngDelta(radius, own.lat)
+      return {
+        lat: lat + Math.sin(angle) * dLat,
+        lng: lng + Math.cos(angle) * dLng,
+      }
+    }
+
+    socket.on('connect', () => {
+      console.log('socket connected', socket.id)
+      console.log('Connected to backend successfully')
+      setConnectionStatus('connected')
+      setConnectionError(null)
+    })
     
-    if (mapRef.current) {
-      mapRef.current.setView([adjusted.lat, adjusted.lng]);
-      
-      if (markersRef.current[id]) {
-        markersRef.current[id].setLatLng([adjusted.lat, adjusted.lng]);
+    socket.on('connect_error', (err) => {
+      console.error('socket connect_error', err)
+      console.error('Connection error details:', {
+        message: err.message,
+        description: err.description,
+        context: err.context,
+        type: err.type
+      })
+      setConnectionStatus('error')
+      setConnectionError(err.message)
+    })
+    
+    socket.on('disconnect', (reason) => {
+      console.log('socket disconnected:', reason)
+      setConnectionStatus('disconnected')
+    })
+    
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('socket reconnected after', attemptNumber, 'attempts')
+      setConnectionStatus('connected')
+      setConnectionError(null)
+    })
+    
+    socket.on('reconnect_error', (error) => {
+      console.error('socket reconnect_error', error)
+      setConnectionStatus('error')
+      setConnectionError(error.message)
+    })
+
+    socket.on('receive-location', (data) => {
+      console.log('receive-location', data)
+      const { id, latitude, longitude } = data
+      const adjusted = maybeJitter(id, latitude, longitude)
+      map.setView([adjusted.lat, adjusted.lng])
+      if (markers[id]) {
+        markers[id].setLatLng([adjusted.lat, adjusted.lng])
       } else {
-        markersRef.current[id] = L.marker([adjusted.lat, adjusted.lng]).addTo(mapRef.current);
+        markers[id] = L.marker([adjusted.lat, adjusted.lng]).addTo(map)
       }
+    })
+
+    socket.on('user-disconnected', (id) => {
+      if (markers[id]) {
+        map.removeLayer(markers[id])
+        delete markers[id]
+      }
+    })
+
+    // Emit an immediate location once (helps peers see you right away)
+    if (navigator.geolocation?.getCurrentPosition) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          ownLocationRef.current = { lat: latitude, lng: longitude }
+          socket.emit('send-location', { latitude, longitude })
+        },
+        (error) => {
+          console.error('getCurrentPosition error', error)
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0,
+        }
+      )
     }
-  };
 
-  const removeUserMarker = (userId) => {
-    if (markersRef.current[userId] && mapRef.current) {
-      mapRef.current.removeLayer(markersRef.current[userId]);
-      delete markersRef.current[userId];
-    }
-  };
-
-  const applyJitterIfNeeded = (id, lat, lng) => {
-    const own = ownLocationRef.current;
-    if (!own || id === socket.id) return { lat, lng };
-    
-    const latMeters = (lat - own.lat) * 111320;
-    const lngMeters = (lng - own.lng) * 111320 * Math.cos((own.lat * Math.PI) / 180);
-    const distanceMeters = Math.sqrt(latMeters * latMeters + lngMeters * lngMeters);
-    
-    if (distanceMeters > 1) return { lat, lng };
-    
-    // Apply small jitter to prevent overlapping markers
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-    }
-    
-    const angle = (hash % 360) * (Math.PI / 180);
-    const radius = 2;
-    const dLat = radius / 111320;
-    const dLng = radius / (111320 * Math.cos((own.lat * Math.PI) / 180));
-    
-    return {
-      lat: lat + Math.sin(angle) * dLat,
-      lng: lng + Math.cos(angle) * dLng,
-    };
-  };
-
-  const initializeGeolocation = () => {
-    if (!navigator.geolocation?.getCurrentPosition) return;
-
-    // Get initial position
-    navigator.geolocation.getCurrentPosition(
+    const watchId = navigator.geolocation?.watchPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        ownLocationRef.current = { lat: latitude, lng: longitude };
-        socket.emit('send-location', { latitude, longitude });
+        const { latitude, longitude } = position.coords
+        ownLocationRef.current = { lat: latitude, lng: longitude }
+        socket.emit('send-location', { latitude, longitude })
       },
       (error) => {
-        console.error('❌ Error getting initial position:', error);
+        console.error(error)
       },
       {
         enableHighAccuracy: true,
         timeout: 5000,
         maximumAge: 0,
       }
-    );
+    )
 
-    // Watch for position changes
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        ownLocationRef.current = { lat: latitude, lng: longitude };
-        socket.emit('send-location', { latitude, longitude });
-      },
-      (error) => {
-        console.error('❌ Error watching position:', error);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0,
+    const handleBeforeUnload = () => {
+      try {
+        socket.disconnect()
+      } catch {
+        console.error('Error disconnecting socket')
       }
-    );
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
 
-    // Cleanup function for geolocation
     return () => {
-      if (navigator.geolocation?.clearWatch) {
-        navigator.geolocation.clearWatch(watchId);
+      if (watchId && navigator.geolocation?.clearWatch) {
+        navigator.geolocation.clearWatch(watchId)
       }
-    };
-  };
-
-  const cleanupMap = () => {
-    if (mapRef.current) {
-      mapRef.current.remove();
-      mapRef.current = null;
+      socket.off('connect')
+      socket.off('connect_error')
+      socket.off('receive-location')
+      socket.off('user-disconnected')
+      socket.disconnect()
+      if (map) {
+        map.remove()
+        mapRef.current = null
+      }
+      window.removeEventListener('beforeunload', handleBeforeUnload)
     }
-  };
-
-  return { mapRef, markersRef, ownLocationRef };
-}
-
-// Connection status indicator component
-function ConnectionStatus({ status, error }) {
-  const getStatusConfig = (status) => {
-    switch (status) {
-      case 'connected':
-        return { text: '🟢 Connected', bgColor: '#4CAF50' };
-      case 'connecting':
-        return { text: '🟡 Connecting...', bgColor: '#2196F3' };
-      case 'disconnected':
-        return { text: '🟠 Disconnected', bgColor: '#ff9800' };
-      case 'error':
-        return { text: '🔴 Connection Error', bgColor: '#f44336' };
-      default:
-        return { text: '🟡 Connecting...', bgColor: '#2196F3' };
-    }
-  };
-
-  const statusConfig = getStatusConfig(status);
+  }, [socket])
 
   return (
-    <>
-      <div
-        style={{
+    <div>
+      {/* Connection Status Indicator */}
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        left: '10px',
+        zIndex: 1000,
+        padding: '8px 12px',
+        borderRadius: '4px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        color: 'white',
+        backgroundColor: connectionStatus === 'connected' ? '#4CAF50' : 
+                       connectionStatus === 'error' ? '#f44336' : 
+                       connectionStatus === 'disconnected' ? '#ff9800' : '#2196F3'
+      }}>
+        {connectionStatus === 'connected' && '🟢 Connected'}
+        {connectionStatus === 'connecting' && '🟡 Connecting...'}
+        {connectionStatus === 'disconnected' && '🟠 Disconnected'}
+        {connectionStatus === 'error' && '🔴 Connection Error'}
+      </div>
+      
+      {connectionError && (
+        <div style={{
           position: 'absolute',
-          top: '10px',
+          top: '50px',
           left: '10px',
           zIndex: 1000,
           padding: '8px 12px',
           borderRadius: '4px',
-          fontSize: '14px',
-          fontWeight: 'bold',
+          fontSize: '12px',
           color: 'white',
-          backgroundColor: statusConfig.bgColor,
-        }}
-      >
-        {statusConfig.text}
-      </div>
-      
-      {error && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '50px',
-            left: '10px',
-            zIndex: 1000,
-            padding: '8px 12px',
-            borderRadius: '4px',
-            fontSize: '12px',
-            color: 'white',
-            backgroundColor: '#f44336',
-            maxWidth: '300px',
-            wordWrap: 'break-word',
-          }}
-        >
-          Error: {error}
+          backgroundColor: '#f44336',
+          maxWidth: '300px',
+          wordWrap: 'break-word'
+        }}>
+          Error: {connectionError}
         </div>
       )}
-    </>
-  );
-}
-
-// Main App component
-function App() {
-  const { socket, connectionStatus, connectionError } = useSocketConnection();
-  useMapManagement(socket);
-
-  // Handle page unload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      try {
-        socket?.disconnect();
-      } catch (error) {
-        console.error('❌ Error disconnecting socket:', error);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [socket]);
-
-  return (
-    <div>
-      <ConnectionStatus 
-        status={connectionStatus} 
-        error={connectionError} 
-      />
-      <div 
-        id="map" 
-        style={{ width: '100vw', height: '100vh' }} 
-      />
+      
+      <div id="map" style={{ width: '100vw', height: '100vh' }} />
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
