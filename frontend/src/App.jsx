@@ -4,7 +4,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 
-function App() {
+function App({wd,ht}) {
   const mapRef = useRef(null)
   const markersRef = useRef({})
   const ownLocationRef = useRef(null)
@@ -205,10 +205,11 @@ function App() {
   }, [socket])
 
   return (
-    <div>
+    <div className='  '>
       {/* Connection Status Indicator */}
-      <div style={{
+      <div className='' style={{
         position: 'absolute',
+        zIndex: '10',
         top: '10px',
         left: '10px',
         zIndex: 1000,
@@ -230,6 +231,7 @@ function App() {
       {connectionError && (
         <div style={{
           position: 'absolute',
+          zIndex: '-10',
           top: '50px',
           left: '10px',
           zIndex: 1000,
@@ -244,8 +246,8 @@ function App() {
           Error: {connectionError}
         </div>
       )}
-      
-      <div id="map" style={{ width: '100vw', height: '100vh' }} />
+
+      <div id="map"   style={{ width:  wd, height: ht, zIndex: 10 }} />
     </div>
   )
 }
