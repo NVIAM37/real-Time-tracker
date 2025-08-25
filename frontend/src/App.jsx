@@ -4,36 +4,24 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './App.css'
 
-function App() {
+function App({wd, ht, isPathFinder = false}) {
   const mapRef = useRef(null)
   const markersRef = useRef({})
   const ownLocationRef = useRef(null)
   const [connectionStatus, setConnectionStatus] = useState('connecting')
   const [connectionError, setConnectionError] = useState(null)
 
+
   const socket = useMemo(() => {
-    // Better URL detection for ngrok compatibility
-    let backendUrl;
-    
-    if (import.meta.env.VITE_BACKEND_URL) {
-      // Use environment variable if set
-      backendUrl = import.meta.env.VITE_BACKEND_URL;
-    } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-      // Local development
-      backendUrl = `${window.location.protocol}//${window.location.hostname}:3000`;
-    } else {
-      // ngrok or other external access - use the same hostname but port 3000
-      // This assumes your backend is running on port 3000 and ngrok is forwarding it
-      backendUrl = `${window.location.protocol}//${window.location.hostname}:3000`;
-    }
-    
-    console.log('Connecting to backend at:', backendUrl);
+    // Connect to backend server
+    const backendUrl = 'http://localhost:3000'
+    console.log('Connecting to backend at:', backendUrl)
     
     return io(backendUrl, {
-      transports: ['polling', 'websocket'], // Try polling first for ngrok compatibility
+      transports: ['polling', 'websocket'],
       autoConnect: true,
       forceNew: true,
-      timeout: 20000, // Increased timeout for ngrok
+      timeout: 20000,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -41,7 +29,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    // Ensure default Leaflet marker icons load correctly in bundlers
+    // Ensure default Leaflet marker icons load correctly
     const defaultIcon = L.icon({
       iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
       iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -55,54 +43,24 @@ function App() {
     L.Marker.prototype.options.icon = defaultIcon
 
     if (!mapRef.current) {
-      mapRef.current = L.map('map', { zoomControl: true }).setView([0, 0], 16)
+      mapRef.current = L.map('map', { zoomControl: true }).setView([0, 0], 13)
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: 'coder7.0',
+        attribution: '', // Remove attribution
       }).addTo(mapRef.current)
     }
 
     const map = mapRef.current
     const markers = markersRef.current
 
-    const metersToLatLngDelta = (meters, atLat) => {
-      const dLat = meters / 111320
-      const dLng = meters / (111320 * Math.cos((atLat * Math.PI) / 180))
-      return { dLat, dLng }
-    }
-
-    const maybeJitter = (id, lat, lng) => {
-      const own = ownLocationRef.current
-      if (!own || id === socket.id) return { lat, lng }
-      const latMeters = (lat - own.lat) * 111320
-      const lngMeters = (lng - own.lng) * 111320 * Math.cos((own.lat * Math.PI) / 180)
-      const distanceMeters = Math.sqrt(latMeters * latMeters + lngMeters * lngMeters)
-      if (distanceMeters > 1) return { lat, lng }
-      let hash = 0
-      for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
-      const angle = (hash % 360) * (Math.PI / 180)
-      const radius = 2
-      const { dLat, dLng } = metersToLatLngDelta(radius, own.lat)
-      return {
-        lat: lat + Math.sin(angle) * dLat,
-        lng: lng + Math.cos(angle) * dLng,
-      }
-    }
-
+    // Socket event handlers
     socket.on('connect', () => {
       console.log('Socket connected:', socket.id)
-      console.log('Connected to backend successfully')
       setConnectionStatus('connected')
       setConnectionError(null)
     })
     
     socket.on('connect_error', (err) => {
       console.error('Socket connection error:', err)
-      console.error('Connection error details:', {
-        message: err.message,
-        description: err.description,
-        context: err.context,
-        type: err.type
-      })
       setConnectionStatus('error')
       setConnectionError(err.message)
     })
@@ -117,22 +75,18 @@ function App() {
       setConnectionStatus('connected')
       setConnectionError(null)
     })
-    
-    socket.on('reconnect_error', (error) => {
-      console.error('Socket reconnection error:', error)
-      setConnectionStatus('error')
-      setConnectionError(error.message)
-    })
 
     socket.on('receive-location', (data) => {
       console.log('Location received:', data)
       const { id, latitude, longitude } = data
-      const adjusted = maybeJitter(id, latitude, longitude)
-      map.setView([adjusted.lat, adjusted.lng])
+      
       if (markers[id]) {
-        markers[id].setLatLng([adjusted.lat, adjusted.lng])
+        markers[id].setLatLng([latitude, longitude])
       } else {
-        markers[id] = L.marker([adjusted.lat, adjusted.lng]).addTo(map)
+        // Create new marker for this user
+        const marker = L.marker([latitude, longitude]).addTo(map)
+        marker.bindPopup(`User ${id.slice(0, 8)}`).openPopup()
+        markers[id] = marker
       }
     })
 
@@ -143,16 +97,33 @@ function App() {
       }
     })
 
-    // Emit an immediate location once (helps peers see you right away)
+    // Get user's current location
     if (navigator.geolocation?.getCurrentPosition) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords
           ownLocationRef.current = { lat: latitude, lng: longitude }
+          
+          // Center map on user's location
+          map.setView([latitude, longitude], 16)
+          
+          // Add user's own marker
+          const ownMarker = L.marker([latitude, longitude], {
+            icon: L.divIcon({
+              className: 'own-location-marker',
+              html: '<div style="background-color: #4CAF50; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10]
+            })
+          }).addTo(map)
+          ownMarker.bindPopup('Your Location').openPopup()
+          
+          // Send location to backend
           socket.emit('send-location', { latitude, longitude })
         },
         (error) => {
           console.error('Error getting initial position:', error)
+          setConnectionError('Unable to get your location')
         },
         {
           enableHighAccuracy: true,
@@ -162,10 +133,18 @@ function App() {
       )
     }
 
+    // Watch for location changes
     const watchId = navigator.geolocation?.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords
         ownLocationRef.current = { lat: latitude, lng: longitude }
+        
+        // Update own marker position
+        if (markers[socket.id]) {
+          markers[socket.id].setLatLng([latitude, longitude])
+        }
+        
+        // Send updated location to backend
         socket.emit('send-location', { latitude, longitude })
       },
       (error) => {
@@ -177,15 +156,6 @@ function App() {
         maximumAge: 0,
       }
     )
-
-    const handleBeforeUnload = () => {
-      try {
-        socket.disconnect()
-      } catch (error) {
-        console.error('Error disconnecting socket:', error)
-      }
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
       if (watchId && navigator.geolocation?.clearWatch) {
@@ -200,52 +170,54 @@ function App() {
         map.remove()
         mapRef.current = null
       }
-      window.removeEventListener('beforeunload', handleBeforeUnload)
     }
   }, [socket])
 
   return (
-    <div>
-      {/* Connection Status Indicator */}
-      <div style={{
-        position: 'absolute',
-        top: '10px',
-        left: '10px',
-        zIndex: 1000,
-        padding: '8px 12px',
-        borderRadius: '4px',
-        fontSize: '14px',
-        fontWeight: 'bold',
-        color: 'white',
-        backgroundColor: connectionStatus === 'connected' ? '#4CAF50' : 
-                       connectionStatus === 'error' ? '#f44336' : 
-                       connectionStatus === 'disconnected' ? '#ff9800' : '#2196F3'
-      }}>
-        {connectionStatus === 'connected' && 'Connected'}
-        {connectionStatus === 'connecting' && 'Connecting...'}
-        {connectionStatus === 'disconnected' && 'Disconnected'}
-        {connectionStatus === 'error' && 'Connection Error'}
-      </div>
-      
-      {connectionError && (
-        <div style={{
-          position: 'absolute',
-          top: '50px',
-          left: '10px',
-          zIndex: 1000,
-          padding: '8px 12px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          color: 'white',
-          backgroundColor: '#f44336',
-          maxWidth: '300px',
-          wordWrap: 'break-word'
-        }}>
-          Error: {connectionError}
+    <div className='relative'>
+      {/* PathFinder Mode Indicator - Top Right */}
+      {isPathFinder && (
+        <div className='absolute top-4 right-4 z-[1000] px-4 py-2 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg border border-blue-400'>
+          🗺️ PathFinder Mode
         </div>
       )}
+
+      {/* Connection Status Indicator - Bottom Left */}
+      <div className='absolute bottom-4 left-4 z-[1000] px-4 py-3 rounded-full text-sm font-semibold text-white shadow-xl border-2 backdrop-blur-sm' 
+           style={{
+             backgroundColor: connectionStatus === 'connected' ? 'rgba(76, 175, 80, 0.9)' : 
+                            connectionStatus === 'error' ? 'rgba(244, 67, 54, 0.9)' : 
+                            connectionStatus === 'disconnected' ? 'rgba(255, 152, 0, 0.9)' : 'rgba(33, 150, 243, 0.9)',
+             borderColor: connectionStatus === 'connected' ? '#4CAF50' : 
+                         connectionStatus === 'error' ? '#f44336' : 
+                         connectionStatus === 'disconnected' ? '#ff9800' : '#2196F3'
+           }}>
+        <div className='flex items-center gap-2'>
+          <div className={`w-3 h-3 rounded-full ${
+            connectionStatus === 'connected' ? 'bg-green-300' : 
+            connectionStatus === 'error' ? 'bg-red-300' : 
+            connectionStatus === 'disconnected' ? 'bg-orange-300' : 'bg-blue-300'
+          }`}></div>
+          <span className='font-medium'>
+            {connectionStatus === 'connected' && 'Connected'}
+            {connectionStatus === 'connecting' && 'Connecting...'}
+            {connectionStatus === 'disconnected' && 'Disconnected'}
+            {connectionStatus === 'error' && 'Connection Error'}
+          </span>
+        </div>
+      </div>
       
-      <div id="map" style={{ width: '100vw', height: '100vh' }} />
+      {/* Connection Error - Below Status Button */}
+      {connectionError && (
+        <div className='absolute bottom-20 left-4 z-[1000] px-4 py-2 rounded-lg text-xs text-white bg-red-500 max-w-[300px] shadow-lg border border-red-400'>
+          <div className='flex items-center gap-2'>
+            <span>⚠️</span>
+            <span>Error: {connectionError}</span>
+          </div>
+        </div>
+      )}
+
+      <div id="map" style={{ width: wd, height: ht, zIndex: 10 }} />
     </div>
   )
 }

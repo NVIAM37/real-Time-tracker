@@ -1,6 +1,6 @@
 # Real-Time Location Tracker
 
-A modern, real-time location tracking application built with React, Socket.IO, and Leaflet maps. This application allows multiple users to share their real-time locations on an interactive map.
+A clean, production-ready, real-time location tracker built with React (Vite) and Node.js/Express + Socket.IO. It supports multiple tabs/clients, robust state sync, and clear server-side logging of users and coordinates.
 
 ## ✨ Features
 
@@ -16,15 +16,15 @@ A modern, real-time location tracking application built with React, Socket.IO, a
 The application is built with a clean, modular architecture:
 
 ### Frontend (React + Vite)
-- **Custom Hooks**: Separated concerns with `useSocketConnection` and `useMapManagement`
-- **Component-based**: Modular React components for better maintainability
-- **Modern CSS**: Enhanced styling with responsive design and accessibility features
-- **Optimized Build**: Vite configuration with code splitting and optimizations
+- **Custom Hook**: `useUserDistances` handles initial fetch, live socket updates, retries, and safety timeouts
+- **Component-based**: `Home` and `PathFinder` screens with shared Navbar/Toggle
+- **Modern CSS**: Tailwind-ready setup with responsive UI
+- **Optimized Build**: Vite dev server and production build
 
 ### Backend (Node.js + Express + Socket.IO)
-- **Clean Structure**: Well-organized server code with helper functions
-- **Configuration Management**: Centralized configuration constants
-- **Error Handling**: Comprehensive error handling and logging
+- **Clean Structure**: Central helpers for distance calculation and broadcasting
+- **Configuration Management**: Centralized `CONFIG` for CORS and Socket.IO
+- **Structured Logging**: Clear logs for connections, locations, and distances
 - **CORS Support**: Full CORS configuration for development and production
 
 ## 🚀 Getting Started
@@ -57,18 +57,26 @@ The application is built with a clean, modular architecture:
 ### Running the Application
 
 1. **Start the backend server**
-   ```bash
-   cd backend
-   npm run dev
+   PowerShell (Windows):
+   ```powershell
+   cd backend; npm run dev
    ```
-   The backend will start on `http://localhost:3000`
+   Bash (macOS/Linux):
+   ```bash
+   cd backend && npm run dev
+   ```
+   The backend listens at `http://localhost:3000`.
 
 2. **Start the frontend development server**
-   ```bash
-   cd frontend
-   npm run dev
+   PowerShell (Windows):
+   ```powershell
+   cd frontend; npm run dev
    ```
-   The frontend will start on `http://localhost:5173`
+   Bash (macOS/Linux):
+   ```bash
+   cd frontend && npm run dev
+   ```
+   The frontend runs at `http://localhost:5173`.
 
 3. **Open your browser** and navigate to `http://localhost:5173`
 
@@ -94,6 +102,11 @@ const CONFIG = {
 };
 ```
 
+Key Socket.IO options used:
+- `transports: ['websocket', 'polling']`
+- `pingInterval`, `pingTimeout`, `upgradeTimeout` tuned for dev tunnels
+- CORS enabled for development origins
+
 ## 📁 Project Structure
 
 ```
@@ -104,10 +117,18 @@ realTime_tracker/
 │   └── .gitignore
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx        # Main application component
-│   │   ├── App.css        # Application styles
-│   │   ├── index.css      # Global styles
-│   │   └── main.jsx       # Application entry point
+│   │   ├── components/Home/
+│   │   │   ├── Home.jsx       # Home screen with cards and status
+│   │   │   ├── PathFinder.jsx # Map + location sender
+│   │   │   ├── Routes.jsx     # App routes
+│   │   │   ├── Navbar.jsx     # Top nav
+│   │   │   └── ToggleButton.jsx
+│   │   ├── hooks/
+│   │   │   └── useUserDistances.js # Socket + API sync and state
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   ├── index.css
+│   │   └── main.jsx
 │   ├── package.json       # Frontend dependencies
 │   ├── vite.config.js     # Vite configuration
 │   └── index.html         # HTML template
@@ -118,17 +139,27 @@ realTime_tracker/
 
 ### Frontend Components
 
-- **App**: Main application component
-- **ConnectionStatus**: Displays connection health and errors
-- **Custom Hooks**:
-  - `useSocketConnection`: Manages Socket.IO connection state
-  - `useMapManagement`: Handles map initialization and updates
+- **Home**: Landing page showing distance, counts, and status with robust loading/error states
+- **PathFinder**: Map view that publishes your location via Socket.IO
+- **Routes**: Handles `/`, `/Home`, `/home`, `/pathfinder`, `/PathFinder` and wildcard redirect
+- **Hook `useUserDistances`**:
+  - Initial API fetch from `GET /api/user-distances`
+  - Subscribes to `distances-updated` + `welcome` socket events
+  - Aggressive retries every 1s until data or 10 attempts
+  - 15s safety timeout to prevent infinite loading
+  - Cleans up timers and socket connections on unmount
 
 ### Backend Functions
 
-- **Socket Event Handlers**: Manage real-time communication
-- **Helper Functions**: Clean, reusable utility functions
-- **Configuration Management**: Centralized settings
+- **Socket Event Handlers**: `send-location`, `disconnect` with structured logging
+- **Helper Functions**: `calculateDistance`, `emitDistanceUpdates`, `broadcastExistingLocations`
+- **Configuration Management**: Central `CONFIG` object
+
+### Backend Logging (Console)
+- On connect: client id, origin, user-agent, current user lists
+- On `send-location`: structured log `{ latitude, longitude }` per user
+- On disconnect: removal logs and rebroadcast
+- On distances emission: total users, distances count, client totals
 
 ## 🛠️ Development
 
@@ -176,11 +207,17 @@ The project follows modern JavaScript/React best practices:
 
 1. **CORS Errors**: Ensure backend CORS settings match your frontend domain
 2. **Socket Connection Issues**: Check network connectivity and firewall settings
+3. **Windows PowerShell chaining**: Use `;` instead of `&&` when chaining commands (e.g., `cd backend; npm run dev`).
 3. **Geolocation Errors**: Ensure HTTPS is used in production (geolocation requirement)
 
-### Debug Mode
+### Debug Mode & Test Utilities
 
-Enable debug logging by checking the browser console and backend terminal for detailed connection information.
+- Backend debug endpoint: `GET http://localhost:3000/debug` (socket count, users, distances)
+- Health endpoint: `GET http://localhost:3000/health`
+- Test users (debug only): `GET http://localhost:3000/test-users` and `GET /clear-test-users`
+- Simple API tester: open `test_api.html` in a browser and click "Test API" to call `GET /api/user-distances`.
+
+Example `test_api.html` location: project root. It fetches the backend API and renders JSON in-page.
 
 ## 📱 Browser Support
 
