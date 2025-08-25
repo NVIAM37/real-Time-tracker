@@ -99,7 +99,7 @@ const Home = () => {
       {/* Fallback content - always show at least the basic structure */}
       <div className="flex sm:flex-row flex-col relative justify-center">
         {/* left part */}
-        <div className="w-full sm:w-[50%] py-10 items-center">
+        <div className="w-full sm:w-[60%] py-10 items-center">
           {/* Content */}
           <div className="text-center py-5">
             <h1
@@ -120,15 +120,17 @@ const Home = () => {
           </div>
 
           {/* Cards */}
-          <h1 className="text-4xl text-gray-700 font-extrabold mt-5 px-10 py-4">
+
+          <div className="p-1 flex flex-col  justify-between -z-20 gap-5">
+            <h1 className="text-4xl text-gray-700 font-extrabold   px-10 py-4">
             TODAY
           </h1>
 
-          <div
-            className="w-[200px] border-3 border-dashed border-[#3554af] h-[80px] lg:h-[180px] z-30 flex items-center justify-center ml-10"
-          >
+         
             <RealTimeClock useBackend={true} />
+        
           </div>
+          
 
           {/* Show loading state if still loading */}
           {isLoading && (
@@ -228,7 +230,7 @@ const Home = () => {
                 </div>
               </div>
 
-              <div className="mt-8 w-full sm:w-[300px] flex flex-col p-5 gap-5">
+              <div className="mt-2 w-full sm:w-[300px] flex flex-col p-5 gap-5">
                 <button
                   className="p-2 rounded-xl font-bold bg-gray-300 text-black"
                   onClick={() => alert("added soon....")}
@@ -239,9 +241,18 @@ const Home = () => {
             </>
           )}
 
-          {/* Show fallback UI if no users and not loading */}
+
+
+
+          <div className=" flex sm:flex-row flex-col items-center justify-center gap-6">
+
+
+
+
+
+             {/* Show fallback UI if no users and not loading */}
           {!isLoading && !error && totalUsers === 0 && (
-            <div className="text-center py-8">
+            <div className="text-center py-4 ">
               <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded mx-auto max-w-md">
                 <p className="font-bold">No Users Connected</p>
                 <p className="text-sm">Open this app in another tab to see real-time tracking</p>
@@ -275,11 +286,14 @@ const Home = () => {
           
           {/* Show fallback UI if everything fails - emergency fallback */}
           {!isLoading && !error && totalUsers === 0 && (
-            <div className="text-center py-8">
-              <div className="bg-gray-100 border border-gray-400 text-gray-700 px-4 py-3 rounded mx-auto max-w-md">
+            <div className="text-center py-8 ">
+              <div className="bg-gray-100 border min-h-[180px] border-gray-400 text-gray-700 px-4 py-3 rounded mx-auto max-w-md flex flex-col items-center justify-between">
                 <p className="font-bold">Welcome to Real-Time Tracker</p>
-                <p className="text-sm">The app is ready but no users are currently connected</p>
+                <div>
+                   <p className="text-sm">The app is ready but no users are currently connected</p>
                 <p className="text-xs text-gray-600 mt-1">This is normal for new installations</p>
+                </div>
+               
                 <div className="flex gap-2 justify-center mt-3">
                   <button 
                     onClick={() => navigate('/pathfinder')} 
@@ -297,10 +311,16 @@ const Home = () => {
               </div>
             </div>
           )}
+
+
+
+          </div>
+
+         
         </div>
 
         {/* Right part */}
-        <div className="w-full sm:w-[50%] py-2 px-3 flex items-center justify-center h-full">
+        <div className="w-full sm:w-[40%]  py-2 px-3 flex items-center justify-center h-full">
           <div className="sm:hidden block">
             <div className="flex flex-col items-center justify-center gap-4">
               <img

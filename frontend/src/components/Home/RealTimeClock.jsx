@@ -67,7 +67,7 @@ const RealTimeClock = ({ useBackend = false }) => {
   });
 
   return (
-    <div className="text-center">
+    <div className="text-center border-2 border-blue-200 py-2 lg:h-[180px] w-full lg:w-[220px]   border-dashed ">
       <div className="text-2xl font-semibold text-gray-600 mb-2">
         {displayGreeting}
       </div>
