@@ -10,9 +10,9 @@ const PathFinder = () => {
       <App wd="100vw" ht="100vh" isPathFinder={true}/>
       
       {/* Distance Info Overlay */}
-      <div className="absolute top-4 right-4 bg-white bg-opacity-90 rounded-lg p-4 shadow-lg z-50">
+      <div className="absolute top-14 right-1 bg-white bg-opacity-90 rounded-lg p-4 shadow-lg z-50">
         <h3 className="text-lg font-bold text-gray-800 mb-2">Connected Users</h3>
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-gray-600 ">
           <p><strong>Total Users:</strong> {isLoading ? '...' : totalUsers}</p>
           <p><strong>Distance:</strong> {getDisplayDistance()}</p>
           <p><strong>Status:</strong> {isLoading ? 'Loading...' : error ? 'Error' : hasConnections ? 'Connected' : 'No connections'}</p>

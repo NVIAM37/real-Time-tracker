@@ -177,7 +177,7 @@ function App({wd, ht, isPathFinder = false}) {
     <div className='relative'>
       {/* PathFinder Mode Indicator - Top Right */}
       {isPathFinder && (
-        <div className='absolute top-4 right-4 z-[1000] px-4 py-2 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg border border-blue-400'>
+        <div className='absolute top-2 right-1 z-[1000] px-4 py-2 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg border border-blue-400'>
           🗺️ PathFinder Mode
         </div>
       )}

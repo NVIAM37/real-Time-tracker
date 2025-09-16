@@ -77,11 +77,11 @@ const Home = () => {
         className={`${
           isDark
             ? "bg-[#0A131F] text-white border-gray-300"
-            : "bg-white text-[#0A131F] border-[#0A131F]"
+            : "bg-[#f1f0f0] text-[#0A131F] border-[#0A131F]"
         }  min-h-screen pt-12 overflow-x-hidden`}
       >
         {/* Debug Info - Only show in development */}
-        <div className="fixed top-22 left-1 -z-0 bg-gray-300 text-black p-2 rounded text-xs">
+        <div className="fixed top-22  -z-0 bg-gray-300 text-black p-2 rounded text-xs">
           <p>Tab ID: {Date.now()}</p>
           <p>Loading: {isLoading ? "Yes" : "No"}</p>
           <p>Users: {totalUsers}</p>
@@ -103,10 +103,10 @@ const Home = () => {
           {/* left part */}
           <div className="w-full sm:w-[60%] py-10 items-center">
             {/* Content */}
-            <div className="text-center py-5">
+            <div className="text-center py-4  mt-14  flex flex-col items-center justify-center gap-2 w-fit m-auto ">
               <h1
                 ref={headingRef}
-                className="text-[2.5rem] sm:text-[2rem] md:text-[2.8rem] xl:text-[4.5rem] sm:text-nowrap font-extrabold py-2 "
+                className="text-[2.5rem] sm:text-[2rem] md:text-[2.8rem] xl:text-[4.5rem] sm:text-nowrap font-extrabold py-1  "
               >
                 Real-Time Tracker
               </h1>
@@ -172,15 +172,15 @@ const Home = () => {
             {!isLoading && !error && (
               <>
                 <div
-                  className={`p-2 flex  lg:flex-row   flex-col gap-2 lg:absolute lg:left-[220px] lg:top-[300px] ${
-                    isDark ? "bg-[#0A131F]" : "bg-white"
+                  className={`p-2 flex  lg:flex-row   flex-col gap-2 lg:absolute lg:left-[220px] lg:top-[350px] ${
+                    isDark ? "bg-[#0A131F]" : "bg-[#f1f0f0]"
                   } rounded-3xl z-50`}
                 >
                   {/* card 1 */}
                   <div
                     ref={(el) => (cardsRef.current[0] = el)}
                     className={` w-auto lg:w-[200px]  ${
-                      isDark ? "bg-[#0a0a0a]" : "bg-white"
+                      isDark ? "bg-[#0a0a0a]" : "bg-[#f1f0f0]"
                     } 
                   border border-gray-700 h-auto sm:h-[150px] rounded-2xl flex flex-row items-center lg:items-start  lg:flex-col gap-2 py-4 px-2 `}
                   >
@@ -199,7 +199,7 @@ const Home = () => {
                   <div
                     ref={(el) => (cardsRef.current[1] = el)}
                     className={`w-auto lg:w-[200px]  ${
-                      isDark ? "bg-[#0a0a0a]" : "bg-white"
+                      isDark ? "bg-[#0a0a0a]" : "bg-[#f1f0f0]"
                     } 
                   border border-gray-700 h-auto sm:h-[150px] rounded-2xl flex  flex-row lg:flex-col items-center lg:items-start   gap-1 py-4 px-2`}
                   >
@@ -225,7 +225,7 @@ const Home = () => {
                   <div
                     ref={(el) => (cardsRef.current[2] = el)}
                     className={`w-auto lg:w-[200px]  ${
-                      isDark ? "bg-[#0a0a0a]" : "bg-white"
+                      isDark ? "bg-[#0a0a0a]" : "bg-[#f1f0f0]"
                     } 
                   border border-gray-700 h-auto sm:h-[150px] rounded-2xl  flex  flex-row lg:flex-col items-center lg:items-start   gap-2 py-4 px-2`}
                   >
