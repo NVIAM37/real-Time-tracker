@@ -46,8 +46,8 @@ It supports multiple tabs/clients, robust state synchronization, and structured 
    cd realTime_tracker
 Install backend dependencies:
 
-bash
-Copy code
+```bash
+
 cd backend
 npm install
 Install frontend dependencies:
@@ -109,10 +109,10 @@ transports: ['websocket', 'polling']
 Tuned pingInterval, pingTimeout, and upgradeTimeout
 
 Development-friendly CORS configuration
+```
 
 ## 📂 Project Structure
-pgsql
-Copy code
+```bash
 realTime_tracker/
 ├── backend/
 │   ├── server.js
@@ -133,6 +133,7 @@ realTime_tracker/
 │   ├── vite.config.js
 │   └── index.html
 └── README.md
+```
 🔑 Key Components
 ## Frontend
 Home → Landing page displaying distances, counts & connection states
