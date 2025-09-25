@@ -41,19 +41,18 @@ It supports multiple tabs/clients, robust state synchronization, and structured 
 ### **Installation**
 
 1. Clone the repository:
-   ```bash
+   ``` bash
    git clone <your-repository-url>
    cd realTime_tracker
 Install backend dependencies:
 
-```bash
+``` bash
 
 cd backend
 npm install
 Install frontend dependencies:
 
-bash
-Copy code
+``` bash
 cd ../frontend
 npm install
 Running the Application
@@ -62,12 +61,10 @@ Start the backend server
 Windows (PowerShell):
 
 powershell
-Copy code
 cd backend; npm run dev
 macOS/Linux (Bash):
 
-bash
-Copy code
+``` bash
 cd backend && npm run dev
 Backend runs at: http://localhost:3000
 
@@ -76,12 +73,10 @@ Start the frontend development server
 Windows (PowerShell):
 
 powershell
-Copy code
 cd frontend; npm run dev
 macOS/Linux (Bash):
 
-bash
-Copy code
+``` bash
 cd frontend && npm run dev
 Frontend runs at: http://localhost:5173
 
@@ -92,7 +87,6 @@ Frontend Environment Variables
 Create a .env file in the frontend directory:
 
 env
-Copy code
 VITE_BACKEND_URL=http://localhost:3000
 Backend Configuration (backend/server.js)
 javascript
@@ -153,7 +147,7 @@ Logging → Structured connection & location logs
 
 ## 📜 Development Scripts
 Backend
-bash
+``` bash
 Copy code
 npm start       # Start production server
 npm run dev     # Start dev server (nodemon)
@@ -169,6 +163,7 @@ npm run lint:fix  # Fix lint issues
 npm run format    # Format with Prettier
 🛠️ Troubleshooting
 CORS Errors → Ensure backend CORS matches frontend domain
+```
 
 Socket Issues → Check firewall & network connectivity
 
