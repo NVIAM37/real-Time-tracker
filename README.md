@@ -52,7 +52,6 @@ cd backend
 npm install
 Install frontend dependencies:
 
-``` bash
 cd ../frontend
 npm install
 Running the Application
@@ -64,7 +63,6 @@ powershell
 cd backend; npm run dev
 macOS/Linux (Bash):
 
-``` bash
 cd backend && npm run dev
 Backend runs at: http://localhost:3000
 
@@ -76,7 +74,6 @@ powershell
 cd frontend; npm run dev
 macOS/Linux (Bash):
 
-``` bash
 cd frontend && npm run dev
 Frontend runs at: http://localhost:5173
 
@@ -90,7 +87,7 @@ env
 VITE_BACKEND_URL=http://localhost:3000
 Backend Configuration (backend/server.js)
 javascript
-Copy code
+
 const CONFIG = {
   PORT: process.env.PORT || 3000,
   CORS_OPTIONS: { /* CORS settings */ },
@@ -148,13 +145,10 @@ Logging → Structured connection & location logs
 ## 📜 Development Scripts
 Backend
 ``` bash
-Copy code
 npm start       # Start production server
 npm run dev     # Start dev server (nodemon)
 npm run lint    # Run ESLint
 Frontend
-bash
-Copy code
 npm run dev       # Start dev server
 npm run build     # Build for production
 npm run preview   # Preview build
